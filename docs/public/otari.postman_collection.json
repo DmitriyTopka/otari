@@ -7870,6 +7870,36 @@
           }
         },
         {
+          "name": "Delete Organization Sso Link",
+          "request": {
+            "description": "Remove a member's own sign-in link at the caller's organization's connection. Owners and admins only.\n\nRefused with 404 for a member with no such link, including a user ID outside the caller's\norganization.",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "organizations",
+                "me",
+                "sso",
+                "links",
+                ":user_id"
+              ],
+              "raw": "{{baseUrl}}/api/v1/organizations/me/sso/links/:user_id",
+              "variable": [
+                {
+                  "description": "path parameter",
+                  "key": "user_id",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Test Organization Sso",
           "request": {
             "description": "Re-discover the caller's organization's own issuer and store the result. Owners and admins only.\n\nRefused with 404 when the organization has not saved a connection yet.",
