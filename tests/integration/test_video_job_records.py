@@ -70,6 +70,8 @@ async def _record(service: VideoJobService, video_id: str, **overrides: Any) -> 
         "workspace_id": None,
         "seconds": None,
         "counts_toward_budget": True,
+        "resolution": None,
+        "aspect_ratio": None,
     }
     fields.update(overrides)
     await service.record(video_id=video_id, **fields)

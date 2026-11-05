@@ -368,6 +368,29 @@ def test_a_completed_job_is_billed_once_for_the_seconds_the_provider_reports(
     assert [(job["id"], job["seconds"], job["billed"]) for job in listed] == [("video_abc", 4, True)]
 
 
+def test_a_completed_job_is_billed_at_the_price_its_resolution_meets(
+    client: TestClient, master_key_header: dict[str, str], db_session_factory: Callable[[], Session]
+) -> None:
+    full_hd = {"resolution": {"equals": "1080p"}}
+    _price(
+        client,
+        master_key_header,
+        {"video": {"output": {"price": 0.1, "unit": "second", "overrides": [{"when": full_hd, "price": 0.3}]}}},
+    )
+    headers = _user_key(client, master_key_header)
+    assert _start(client, headers, seconds=4, resolution="1080p").status_code == 200
+    done = _job(status="completed", seconds=6, outputs=[VideoOutput(url="https://cdn.example/v.mp4")])
+
+    assert _read(client, headers, done).status_code == 200
+
+    (row,) = _rows(db_session_factory, "/v1/videos/completed", expected=1)
+    assert row.cost == Decimal("1.8")
+    assert row.pricing_breakdown == [
+        {"meter": "seconds", "units": 6, "unit": "second", "unit_rate": 0.3, "cost": 1.8, "rules": [full_hd]}
+    ]
+    assert _spend(client, master_key_header) == (1.8, 0.0)
+
+
 def test_a_completed_job_the_provider_gives_no_length_for_is_billed_for_the_length_asked(
     client: TestClient, master_key_header: dict[str, str], db_session_factory: Callable[[], Session]
 ) -> None:

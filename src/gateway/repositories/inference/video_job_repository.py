@@ -33,6 +33,8 @@ class VideoJobRepository(BaseRepository[VideoJobRecord, Never, Never]):
         workspace_id: uuid.UUID | None,
         seconds: int | None,
         counts_toward_budget: bool,
+        resolution: str | None,
+        aspect_ratio: str | None,
     ) -> VideoJobRecord:
         """Stage the record of a job the provider accepted."""
         record = VideoJobRecord(
@@ -44,6 +46,8 @@ class VideoJobRepository(BaseRepository[VideoJobRecord, Never, Never]):
             workspace_id=workspace_id,
             seconds=seconds,
             counts_toward_budget=counts_toward_budget,
+            resolution=resolution,
+            aspect_ratio=aspect_ratio,
         )
         self.db.add(record)
         await self.db.flush()
