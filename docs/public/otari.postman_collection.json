@@ -1109,6 +1109,105 @@
           }
         },
         {
+          "name": "Callback Sso",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"code\": \"string\",\n  \"state\": \"string\"\n}"
+            },
+            "description": "Exchange an authorization code and set the HttpOnly session cookie.\n\nThe session is bound to the identity the organization's connection resolves to. A refusal is\ncounted as a failed sign-in, and a sign-in that creates the account, or is the first way in to\none, is reported to ``GrowthSignalPort`` once it has committed.\n\n**Maintenance mode freezes this.** A frozen deployment makes no outbound call and spends\nnobody's authorization code.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sso",
+                "callback"
+              ],
+              "raw": "{{baseUrl}}/api/v1/auth/sso/callback"
+            }
+          }
+        },
+        {
+          "name": "Lookup Sso",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"email\": \"string\"\n}"
+            },
+            "description": "Say whether an organization's own connection admits a sign-in at this address.\n\nAn unknown domain, one no organization has proven, and a proven one whose organization holds\nno enabled connection all answer alike: ``found`` is false and nothing else is named.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sso",
+                "lookup"
+              ],
+              "raw": "{{baseUrl}}/api/v1/auth/sso/lookup"
+            }
+          }
+        },
+        {
+          "name": "Authorize Sso",
+          "request": {
+            "description": "Start a sign-in through the organization's own connection at ``slug``.\n\nAn unknown slug and a slug naming an organization with no enabled connection answer alike\n(404), so this surface cannot be read as a directory of which organizations use Otari.\n\nNOTE: This GET writes. It records a pending authorization and sets an HttpOnly cookie, both\nscoped to this router's own path.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sso",
+                ":slug",
+                "authorize"
+              ],
+              "raw": "{{baseUrl}}/api/v1/auth/sso/:slug/authorize",
+              "variable": [
+                {
+                  "description": "path parameter",
+                  "key": "slug",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Verify Email Route",
           "request": {
             "body": {
