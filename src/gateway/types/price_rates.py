@@ -27,6 +27,7 @@ from pydantic import (
     ConfigDict,
     Field,
     SerializerFunctionWrapHandler,
+    ValidationInfo,
     field_validator,
     model_serializer,
     model_validator,
@@ -40,6 +41,7 @@ from gateway.types.models_dev import (
     ModelsDevPricing,
     ModelsDevUnitPrice,
     Number,
+    condition_problem,
     direction_cost,
     parse_pricing,
     pricing_document,
@@ -318,6 +320,29 @@ def _a_price(value: Any) -> Any:
     return value
 
 
+def stored_rates(document: Mapping[str, Any]) -> "RatesDocument":
+    """A row's block as the wire shows it, its rules taken as stored.
+
+    A block is held to models.dev's conditions when it is written, not when it
+    is read back: a seeded row keeps the catalog's block whole, which may name
+    a condition models.dev added after this version.
+    """
+    return RatesDocument.model_validate(document, context=_STORED)
+
+
+# The validation context of a block read back from a row.
+_STORED = {"stored": True}
+
+
+def _condition(when: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
+    """``when`` when it is a condition models.dev's schema allows; the refusal names what is not."""
+    if isinstance(info.context, Mapping) and info.context.get("stored"):
+        return when
+    if (problem := condition_problem(when)) is not None:
+        raise ValueError(problem)
+    return when
+
+
 def _finite(value: int | float | Decimal) -> bool:
     try:
         return math.isfinite(value)
@@ -354,6 +379,11 @@ class RateOverride(_Strict):
     def _as_numbers(cls, value: Any) -> Any:
         return _numbers(value)
 
+    @field_validator("when")
+    @classmethod
+    def _a_condition(cls, value: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
+        return _condition(value, info)
+
 
 class UnitRate(_Strict):
     """One price: of a modality's input or output, or of web search."""
@@ -386,6 +416,11 @@ class RateMultiplier(_Strict):
     @classmethod
     def _as_numbers(cls, value: Any) -> Any:
         return _numbers(value)
+
+    @field_validator("when")
+    @classmethod
+    def _a_condition(cls, value: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
+        return _condition(value, info)
 
     @field_validator("factor", mode="before")
     @classmethod
