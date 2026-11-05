@@ -18,6 +18,8 @@ in the dashboard; how a request uses the servers is described in [MCP](mcp.md).
    commas, or leave it blank to allow every tool the server offers.
 7. Leave **Enabled** on, and click **Add MCP server**.
 
+![The New MCP server dialog, with a name, URL, token, purpose hint and allowed tools filled in.](assets/screenshots/add-an-mcp-server.png)
+
 Requests in the workspace can use the server's allowed tools from then on.
 Turning **Enabled** off keeps the server's settings but stops requests from
 using it. How a request reaches these servers, and their limits, are in
