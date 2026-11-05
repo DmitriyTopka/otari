@@ -17,16 +17,17 @@ through the one reader every rate goes through.
 """
 
 import copy
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from gateway.core.metered_pricing import ChargeLine
 from gateway.models.pricing import ModelPricing
 from gateway.repositories.pricing import transient_pricing
 from gateway.types.models_dev import parse_pricing
-from gateway.types.price_rates import columns_from_pricing
+from gateway.types.price_rates import column_paths, columns_from_pricing
 from gateway.types.price_unit import PRICE_UNITS
 
 _DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -95,10 +96,35 @@ class ResolvedRates:
 
 @dataclass(frozen=True)
 class AppliedRate:
-    """A rate with the rules its request meets applied, and the conditions that changed each price."""
+    """A rate with the rules its request meets applied, and the conditions that changed each price.
+
+    ``columns`` names the prices the rate columns were read from, the input
+    columns' and the output column's, or is ``None`` where the row kept its own.
+    """
 
     rate: ModelPricing
     rules: Mapping[str, tuple[Condition, ...]] = field(default_factory=dict)
+    columns: tuple[str, str | None] | None = None
+
+    def explain(self, lines: Sequence[ChargeLine], *, path: str | None = None) -> list[ChargeLine]:
+        """``lines`` with each naming, under ``rules``, the conditions that changed the price it bills at.
+
+        ``path`` is the price every line bills at. Without it a line bills at
+        the price the columns were read from: the ``output`` line at the output
+        price, every other line at the input price. A line no rule changed is
+        left as it is.
+        """
+        explained: list[ChargeLine] = []
+        for line in lines:
+            found = self.rules.get(path if path is not None else self._column_path(line) or "")
+            explained.append({**line, "rules": [dict(rule) for rule in found]} if found else line)
+        return explained
+
+    def _column_path(self, line: ChargeLine) -> str | None:
+        if self.columns is None:
+            return None
+        given, made = self.columns
+        return made if line.get("meter") == "output" else given
 
 
 def resolve_rates(document: Mapping[str, Any], facts: PriceFacts) -> ResolvedRates:
@@ -150,21 +176,21 @@ def apply_rules(rate: ModelPricing, facts: PriceFacts) -> AppliedRate:
     try:
         pricing, _ = parse_pricing(resolved.document, units=PRICE_UNITS, path="rates")
         columns = columns_from_pricing(pricing)
+        paths = column_paths(pricing)
     except (TypeError, ValueError):
-        columns = None
+        columns, paths = None, None
     if columns is None or columns.unit != unit:
-        applied = transient_pricing(rate, rates=resolved.document)
-    else:
-        applied = transient_pricing(
-            rate,
-            rates=resolved.document,
-            input_price_per_million=columns.input_price_per_million,
-            output_price_per_million=columns.output_price_per_million,
-            cache_read_price_per_million=columns.cache_read_price_per_million,
-            cache_write_price_per_million=columns.cache_write_price_per_million,
-            pricing_tiers=[dict(tier) for tier in columns.pricing_tiers],
-        )
-    return AppliedRate(applied, resolved.rules)
+        return AppliedRate(transient_pricing(rate, rates=resolved.document), resolved.rules)
+    applied = transient_pricing(
+        rate,
+        rates=resolved.document,
+        input_price_per_million=columns.input_price_per_million,
+        output_price_per_million=columns.output_price_per_million,
+        cache_read_price_per_million=columns.cache_read_price_per_million,
+        cache_write_price_per_million=columns.cache_write_price_per_million,
+        pricing_tiers=[dict(tier) for tier in columns.pricing_tiers],
+    )
+    return AppliedRate(applied, resolved.rules, paths)
 
 
 def _resolved_price(price: object, values: Mapping[str, object], rules: dict[str, list[Condition]], path: str) -> Any:
